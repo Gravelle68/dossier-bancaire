@@ -9,7 +9,7 @@ import numpy as np
 from datetime import datetime
 import io
 
-# Configuration de la page
+# Configuration
 st.set_page_config(
     page_title="Générateur Dossier Bancaire",
     page_icon="📁",
@@ -17,49 +17,19 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS personnalisé
+# CSS simplifié (sans HTML dynamique qui cause le bug)
 st.markdown("""
 <style>
-    .main-header {
-        background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-        padding: 2rem;
-        border-radius: 10px;
-        color: white;
-        margin-bottom: 2rem;
-        text-align: center;
-    }
     .stButton>button {
         width: 100%;
-        background: #3b82f6;
-        color: white;
         border-radius: 8px;
         padding: 0.75rem;
-        border: none;
         font-weight: bold;
-        font-size: 1rem;
-    }
-    .stButton>button:hover {
-        background: #2563eb;
-    }
-    .category-header {
-        background: #1e293b;
-        padding: 1rem;
-        border-radius: 5px;
-        color: #60a5fa;
-        font-weight: bold;
-        margin-top: 1rem;
-    }
-    .doc-item {
-        background: #f1f5f9;
-        padding: 0.5rem;
-        margin: 0.25rem 0;
-        border-radius: 5px;
-        border-left: 3px solid #3b82f6;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Définition des catégories
+# Catégories
 CATEGORIES = {
     "IDENTITÉ": [
         "Carte d'identité (recto-verso)",
@@ -109,7 +79,7 @@ if 'description_projet' not in st.session_state:
 if 'image_garde' not in st.session_state:
     st.session_state.image_garde = None
 
-# Fonction de traitement carte d'identité
+# Traitement carte d'identité
 def traiter_carte_identite(chemin_image, nom_affichage):
     try:
         img = cv2.imread(chemin_image)
@@ -182,7 +152,7 @@ def creer_page_carte_identite(img_originale, cartes_detectees, nom_affichage):
     except:
         return None
 
-# Fonction de génération PDF
+# Génération PDF
 def generer_pdf_complet(description, image_garde_path):
     doc = fitz.open()
     
@@ -196,7 +166,7 @@ def generer_pdf_complet(description, image_garde_path):
     
     page_garde.insert_text((70, 160), "DOSSIER DE DEMANDE",
                           fontsize=34, fontname="Helvetica-Bold", color=(1, 1, 1))
-    page_garde.insert_text((70, 205), "DE CRÉDIT IMMOBILIER",
+    page_garde.insert_text((70, 205), "DE CREDIT IMMOBILIER",
                           fontsize=34, fontname="Helvetica-Bold", color=(1, 1, 1))
     
     if description:
@@ -243,7 +213,6 @@ def generer_pdf_complet(description, image_garde_path):
         if not any(docs.values()):
             continue
         
-        # INTERCALAIRE
         intercalaire = doc.new_page()
         current_page += 1
         page_numbers[category] = current_page - 1
@@ -281,7 +250,6 @@ def generer_pdf_complet(description, image_garde_path):
                 y_pos += 26
                 file_num += 1
         
-        # AJOUTER LES DOCUMENTS
         for doc_type, doc_files in docs.items():
             for file_index, doc_info in enumerate(doc_files):
                 page_key = f"{category}_{doc_type}_{file_index}"
@@ -388,29 +356,23 @@ def generer_pdf_complet(description, image_garde_path):
             y_position += 12
     
     sommaire_page.insert_text((55, y_position + 25),
-                            "Cliquez sur les éléments pour naviguer directement",
+                            "Cliquez sur les elements pour naviguer directement",
                             fontsize=10, fontname="Helvetica-Oblique", color=(0, 0.6, 0))
     
-    # Sauvegarder en mémoire
     pdf_bytes = doc.tobytes()
     doc.close()
     
     return pdf_bytes
 
 # Header
-st.markdown("""
-<div class="main-header">
-    <h1>📁 Générateur de Dossier Bancaire</h1>
-    <p>Crédit Immobilier Professionnel</p>
-</div>
-""", unsafe_allow_html=True)
+st.title("📁 Générateur de Dossier Bancaire")
+st.caption("Crédit Immobilier Professionnel")
 
-# Calcul progression
+# Progression
 total_types = sum(len(docs) for docs in CATEGORIES.values())
 total_files = sum(len(files) for cat in st.session_state.documents.values() for files in cat.values())
 progress = int((total_files / total_types) * 100) if total_types > 0 else 0
 
-# Barre de progression
 col1, col2, col3 = st.columns([2, 1, 1])
 with col1:
     st.progress(progress / 100)
@@ -419,9 +381,11 @@ with col2:
 with col3:
     st.metric("Fichiers", total_files)
 
-# Sidebar pour la page de garde
+st.divider()
+
+# Sidebar
 with st.sidebar:
-    st.header("Page de garde")
+    st.header("🎨 Page de garde")
     
     description = st.text_area(
         "Description du projet",
@@ -433,8 +397,7 @@ with st.sidebar:
     
     image_garde_file = st.file_uploader(
         "Image de page de garde",
-        type=['jpg', 'jpeg', 'png', 'bmp'],
-        key="image_garde_upload"
+        type=['jpg', 'jpeg', 'png', 'bmp']
     )
     
     if image_garde_file:
@@ -442,11 +405,10 @@ with st.sidebar:
         with open(chemin_image, "wb") as f:
             f.write(image_garde_file.getbuffer())
         st.session_state.image_garde = chemin_image
-        st.image(image_garde_file, caption="Aperçu", width=200)
+        st.image(image_garde_file, width=200)
     
-    st.markdown("---")
+    st.divider()
     
-    # Bouton de génération
     if total_files == 0:
         st.warning("Ajoutez des documents d'abord")
     else:
@@ -470,8 +432,8 @@ with st.sidebar:
                 except Exception as e:
                     st.error(f"Erreur: {str(e)}")
 
-# Tabs principales
-tab1, tab2 = st.tabs(["Ajouter des documents", "Voir tous les documents"])
+# Tabs
+tab1, tab2 = st.tabs(["📤 Ajouter des documents", "📋 Voir tous les documents"])
 
 with tab1:
     st.subheader("Ajouter un document")
@@ -485,9 +447,8 @@ with tab1:
         doc_type = st.selectbox("Type de document", CATEGORIES[category])
     
     uploaded_file = st.file_uploader(
-        "Choisir un fichier",
-        type=['pdf', 'jpg', 'jpeg', 'png', 'bmp', 'tiff'],
-        key=f"uploader_main"
+        "Choisir un fichier (PDF, JPG, PNG, BMP)",
+        type=['pdf', 'jpg', 'jpeg', 'png', 'bmp', 'tiff']
     )
     
     if uploaded_file:
@@ -502,7 +463,7 @@ with tab1:
         with col_add:
             st.write("")
             st.write("")
-            if st.button("Ajouter", type="primary"):
+            if st.button("✅ Ajouter", type="primary"):
                 extension = os.path.splitext(uploaded_file.name)[1]
                 nouveau_nom = f"{category}_{doc_type}_{nom_affichage}{extension}"
                 chemin = os.path.join(st.session_state.temp_dir, nouveau_nom)
@@ -510,8 +471,7 @@ with tab1:
                 with open(chemin, "wb") as f:
                     f.write(uploaded_file.getbuffer())
                 
-                # Traiter carte d'identité
-                if "carte" in doc_type.lower() and "identité" in doc_type.lower() and extension.lower() in ['.jpg', '.jpeg', '.png']:
+                if "carte" in doc_type.lower() and "identite" in doc_type.lower() and extension.lower() in ['.jpg', '.jpeg', '.png']:
                     try:
                         chemin = traiter_carte_identite(chemin, nom_affichage)
                     except:
@@ -524,7 +484,7 @@ with tab1:
                 }
                 
                 st.session_state.documents[category][doc_type].append(doc_info)
-                st.success(f"✅ {nom_affichage} ajouté!")
+                st.success(f"Document ajouté : {nom_affichage}")
                 st.rerun()
 
 with tab2:
@@ -540,12 +500,11 @@ with tab2:
                     for i, doc_info in enumerate(files):
                         col1, col2 = st.columns([5, 1])
                         with col1:
-                            st.markdown(f'<div class="doc-item">📄 {doc_info["nom_affichage"]} [{doc_info["type_fichier"]}]</div>', unsafe_allow_html=True)
+                            st.text(f"📄 {doc_info['nom_affichage']} [{doc_info['type_fichier']}]")
                         with col2:
                             if st.button("🗑️", key=f"del_{cat}_{doc_type}_{i}"):
                                 st.session_state.documents[cat][doc_type].pop(i)
                                 st.rerun()
 
-# Footer
-st.markdown("---")
-st.caption("💡 Application web - Fonctionne sur tous les appareils")
+st.divider()
+st.caption("Application web - Fonctionne sur tous les appareils")
