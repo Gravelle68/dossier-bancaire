@@ -432,46 +432,84 @@ with st.sidebar:
                 except Exception as e:
                     st.error(f"Erreur: {str(e)}")
 
-# Tabs
-tab1, tab2 = st.tabs(["📤 Ajouter des documents", "📋 Voir tous les documents"])
+# Initialiser la sélection si elle n'existe pas
+if 'selected_category' not in st.session_state:
+    st.session_state.selected_category = None
+if 'selected_doc_type' not in st.session_state:
+    st.session_state.selected_doc_type = None
 
-with tab1:
-    st.subheader("Ajouter un document")
+# Layout principal
+col_left, col_right = st.columns([2, 1])
+
+with col_left:
+    st.subheader("📋 Documents requis")
     
-    col_cat, col_type = st.columns(2)
-    
-    with col_cat:
-        category = st.selectbox("Catégorie", list(CATEGORIES.keys()))
-    
-    with col_type:
-        doc_type = st.selectbox("Type de document", CATEGORIES[category])
-    
-    uploaded_file = st.file_uploader(
-        "Choisir un fichier (PDF, JPG, PNG, BMP)",
-        type=['pdf', 'jpg', 'jpeg', 'png', 'bmp', 'tiff']
-    )
-    
-    if uploaded_file:
-        col_name, col_add = st.columns([3, 1])
+    # Afficher la structure arborescente
+    for category, doc_types in CATEGORIES.items():
+        files_in_cat = sum(len(st.session_state.documents[category][dt]) for dt in doc_types)
         
-        with col_name:
+        with st.expander(f"📂 **{category}** - {len(doc_types)} types ({files_in_cat} fichiers)", expanded=True):
+            for doc_type in doc_types:
+                files = st.session_state.documents[category][doc_type]
+                
+                col_doc, col_status, col_btn = st.columns([4, 1, 1])
+                
+                with col_doc:
+                    if files:
+                        st.markdown(f"**📄 {doc_type}**")
+                    else:
+                        st.markdown(f"📄 {doc_type}")
+                
+                with col_status:
+                    if files:
+                        st.success(f"✓ {len(files)}")
+                    else:
+                        st.warning("—")
+                
+                with col_btn:
+                    if st.button("➕", key=f"select_{category}_{doc_type}", help="Ajouter un document"):
+                        st.session_state.selected_category = category
+                        st.session_state.selected_doc_type = doc_type
+                        st.rerun()
+                
+                # Afficher les fichiers ajoutés
+                if files:
+                    for i, doc_info in enumerate(files):
+                        col_file, col_del = st.columns([5, 1])
+                        with col_file:
+                            st.caption(f"  └─ {doc_info['nom_affichage']} [{doc_info['type_fichier']}]")
+                        with col_del:
+                            if st.button("🗑️", key=f"del_{category}_{doc_type}_{i}", help="Supprimer"):
+                                st.session_state.documents[category][doc_type].pop(i)
+                                st.rerun()
+
+with col_right:
+    st.subheader("➕ Ajouter un document")
+    
+    if st.session_state.selected_category and st.session_state.selected_doc_type:
+        st.info(f"**Catégorie :** {st.session_state.selected_category}\n\n**Type :** {st.session_state.selected_doc_type}")
+        
+        uploaded_file = st.file_uploader(
+            "Choisir un fichier",
+            type=['pdf', 'jpg', 'jpeg', 'png', 'bmp', 'tiff'],
+            key="file_uploader"
+        )
+        
+        if uploaded_file:
             nom_affichage = st.text_input(
                 "Nom du document",
                 value=os.path.splitext(uploaded_file.name)[0]
             )
-        
-        with col_add:
-            st.write("")
-            st.write("")
-            if st.button("✅ Ajouter", type="primary"):
+            
+            if st.button("✅ Ajouter ce document", type="primary", use_container_width=True):
                 extension = os.path.splitext(uploaded_file.name)[1]
-                nouveau_nom = f"{category}_{doc_type}_{nom_affichage}{extension}"
+                nouveau_nom = f"{st.session_state.selected_category}_{st.session_state.selected_doc_type}_{nom_affichage}{extension}"
                 chemin = os.path.join(st.session_state.temp_dir, nouveau_nom)
                 
                 with open(chemin, "wb") as f:
                     f.write(uploaded_file.getbuffer())
                 
-                if "carte" in doc_type.lower() and "identite" in doc_type.lower() and extension.lower() in ['.jpg', '.jpeg', '.png']:
+                if "carte" in st.session_state.selected_doc_type.lower() and "identite" in st.session_state.selected_doc_type.lower() and extension.lower() in ['.jpg', '.jpeg', '.png']:
                     try:
                         chemin = traiter_carte_identite(chemin, nom_affichage)
                     except:
@@ -483,28 +521,20 @@ with tab1:
                     'type_fichier': 'PDF' if extension.lower() == '.pdf' else 'Image'
                 }
                 
-                st.session_state.documents[category][doc_type].append(doc_info)
-                st.success(f"Document ajouté : {nom_affichage}")
+                st.session_state.documents[st.session_state.selected_category][st.session_state.selected_doc_type].append(doc_info)
+                st.success(f"✅ {nom_affichage} ajouté!")
+                
+                # Réinitialiser la sélection
+                st.session_state.selected_category = None
+                st.session_state.selected_doc_type = None
                 st.rerun()
-
-with tab2:
-    st.subheader("Documents par catégorie")
-    
-    for cat, docs in st.session_state.documents.items():
-        files_in_cat = sum(len(files) for files in docs.values())
         
-        with st.expander(f"📂 {cat} ({files_in_cat} fichiers)", expanded=files_in_cat > 0):
-            for doc_type, files in docs.items():
-                if files:
-                    st.markdown(f"**{doc_type}**")
-                    for i, doc_info in enumerate(files):
-                        col1, col2 = st.columns([5, 1])
-                        with col1:
-                            st.text(f"📄 {doc_info['nom_affichage']} [{doc_info['type_fichier']}]")
-                        with col2:
-                            if st.button("🗑️", key=f"del_{cat}_{doc_type}_{i}"):
-                                st.session_state.documents[cat][doc_type].pop(i)
-                                st.rerun()
+        if st.button("❌ Annuler", use_container_width=True):
+            st.session_state.selected_category = None
+            st.session_state.selected_doc_type = None
+            st.rerun()
+    else:
+        st.info("👈 Cliquez sur le bouton ➕ à côté d'un type de document pour commencer")
 
 st.divider()
 st.caption("Application web - Fonctionne sur tous les appareils")
