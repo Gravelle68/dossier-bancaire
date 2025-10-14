@@ -1,4 +1,7 @@
-import streamlit as st
+if 'selected_category' not in st.session_state:
+    st.session_state.selected_category = None
+if 'selected_doc_type' not in st.session_state:
+    st.session_state.selected_doc_type = Noneimport streamlit as st
 import os
 import tempfile
 import shutil
@@ -31,6 +34,12 @@ st.markdown("""
 
 # Catégories
 CATEGORIES = {
+    "PRÉSENTATION DU PROJET": [
+        "Description du projet",
+        "Chiffres clés",
+        "Plan de financement détaillé",
+        "Présentation personnalisée"
+    ],
     "IDENTITÉ": [
         "Carte d'identité (recto-verso)",
         "Livret de famille",
@@ -56,7 +65,6 @@ CATEGORIES = {
     "PROJET IMMOBILIER": [
         "Compromis de vente",
         "Estimation du bien",
-        "Plan de financement",
         "Devis travaux (si applicable)"
     ],
     "AUTRES DOCUMENTS": [
@@ -93,11 +101,6 @@ if 'presentation_projet' not in st.session_state:
         'revenus_mensuels': '',
         'charges_mensuelles': ''
     }
-
-if 'selected_category' not in st.session_state:
-    st.session_state.selected_category = None
-if 'selected_doc_type' not in st.session_state:
-    st.session_state.selected_doc_type = None
 
 # Traitement carte d'identité
 def traiter_carte_identite(chemin_image, nom_affichage):
@@ -229,78 +232,8 @@ def generer_pdf_complet(info_garde, presentation_projet):
     page_garde.insert_text((420, 810), "DOCUMENT CONFIDENTIEL",
                           fontsize=8, fontname="Helvetica", color=(0.4, 0.4, 0.4))
     
-    # PAGE PRÉSENTATION DU PROJET
-    page_presentation = doc.new_page()
-    
-    # En-tête minimaliste
-    page_presentation.draw_rect(fitz.Rect(0, 0, 595, 100), color=(0.17, 0.24, 0.31), fill=(0.17, 0.24, 0.31))
-    page_presentation.insert_text((50, 55), "PRESENTATION DU PROJET",
-                                 fontsize=28, fontname="Helvetica-Bold", color=(1, 1, 1))
-    
-    y_pos = 140
-    
-    # Description du projet
-    if presentation_projet.get('description'):
-        page_presentation.insert_text((50, y_pos), "Description du projet",
-                                     fontsize=14, fontname="Helvetica-Bold", color=(0.17, 0.24, 0.31))
-        y_pos += 25
-        
-        desc = presentation_projet['description']
-        words = desc.split()
-        lines = []
-        current_line = []
-        max_chars = 85
-        
-        for word in words:
-            test_line = " ".join(current_line + [word])
-            if len(test_line) > max_chars:
-                if current_line:
-                    lines.append(" ".join(current_line))
-                    current_line = [word]
-            else:
-                current_line.append(word)
-        if current_line:
-            lines.append(" ".join(current_line))
-        
-        for line in lines[:6]:
-            page_presentation.insert_text((50, y_pos), line,
-                                        fontsize=11, fontname="Helvetica", color=(0.2, 0.2, 0.2))
-            y_pos += 18
-        
-        y_pos += 30
-    
-    # Tableau des chiffres clés
-    page_presentation.draw_rect(fitz.Rect(50, y_pos, 545, y_pos + 35), 
-                               color=(0.17, 0.24, 0.31), fill=(0.17, 0.24, 0.31))
-    page_presentation.insert_text((60, y_pos + 22), "CHIFFRES CLES",
-                                 fontsize=13, fontname="Helvetica-Bold", color=(1, 1, 1))
-    
-    y_pos += 55
-    
-    chiffres = [
-        ("Surface", presentation_projet.get('surface', '—')),
-        ("Prix d'acquisition", presentation_projet.get('prix_acquisition', '—')),
-        ("Apport personnel", presentation_projet.get('apport_personnel', '—')),
-        ("Montant emprunté", presentation_projet.get('montant_emprunte', '—')),
-        ("Durée souhaitée", presentation_projet.get('duree_souhaitee', '—')),
-        ("Revenus mensuels nets", presentation_projet.get('revenus_mensuels', '—')),
-        ("Charges mensuelles", presentation_projet.get('charges_mensuelles', '—'))
-    ]
-    
-    for i, (label, value) in enumerate(chiffres):
-        if i % 2 == 0:
-            page_presentation.draw_rect(fitz.Rect(50, y_pos - 5, 545, y_pos + 20),
-                                       color=(0.95, 0.95, 0.95), fill=(0.95, 0.95, 0.95))
-        
-        page_presentation.insert_text((60, y_pos + 12), label,
-                                     fontsize=11, fontname="Helvetica-Bold", color=(0.2, 0.2, 0.2))
-        page_presentation.insert_text((320, y_pos + 12), value,
-                                     fontsize=11, fontname="Helvetica", color=(0.3, 0.3, 0.3))
-        
-        y_pos += 35
-    
     page_numbers = {}
-    current_page = 2
+    current_page = 1
     
     # DOCUMENTS
     for category, docs in st.session_state.documents.items():
@@ -398,23 +331,6 @@ def generer_pdf_complet(info_garde, presentation_projet):
     
     y_position = 160
     
-    # Lien vers présentation
-    rect_pres = fitz.Rect(50, y_position-6, 470, y_position+18)
-    lien_pres = {
-        "kind": fitz.LINK_GOTO,
-        "page": 1,
-        "to": fitz.Point(50, 100),
-        "from": rect_pres
-    }
-    sommaire_page.insert_link(lien_pres)
-    
-    sommaire_page.insert_text((60, y_position), "PRESENTATION DU PROJET",
-                            fontsize=13, fontname="Helvetica-Bold", color=(0.17, 0.24, 0.31))
-    sommaire_page.insert_text((500, y_position), "p.2",
-                            fontsize=11, fontname="Helvetica", color=(0.4, 0.4, 0.4))
-    
-    y_position += 35
-    
     for category, docs in st.session_state.documents.items():
         if any(docs.values()):
             rect_cat = fitz.Rect(50, y_position-6, 470, y_position+18)
@@ -509,61 +425,6 @@ with st.sidebar:
         value=st.session_state.info_garde['montant_sollicite'],
         placeholder="XXX XXX €"
     )
-    
-    st.divider()
-    
-    st.header("📊 Présentation du projet")
-    
-    with st.expander("Description", expanded=False):
-        st.session_state.presentation_projet['description'] = st.text_area(
-            "Description détaillée",
-            value=st.session_state.presentation_projet['description'],
-            height=100,
-            placeholder="Décrivez votre projet immobilier..."
-        )
-    
-    with st.expander("Chiffres clés", expanded=False):
-        st.session_state.presentation_projet['surface'] = st.text_input(
-            "Surface",
-            value=st.session_state.presentation_projet['surface'],
-            placeholder="120 m²"
-        )
-        
-        st.session_state.presentation_projet['prix_acquisition'] = st.text_input(
-            "Prix d'acquisition",
-            value=st.session_state.presentation_projet['prix_acquisition'],
-            placeholder="350 000 €"
-        )
-        
-        st.session_state.presentation_projet['apport_personnel'] = st.text_input(
-            "Apport personnel",
-            value=st.session_state.presentation_projet['apport_personnel'],
-            placeholder="70 000 €"
-        )
-        
-        st.session_state.presentation_projet['montant_emprunte'] = st.text_input(
-            "Montant emprunté",
-            value=st.session_state.presentation_projet['montant_emprunte'],
-            placeholder="280 000 €"
-        )
-        
-        st.session_state.presentation_projet['duree_souhaitee'] = st.text_input(
-            "Durée souhaitée",
-            value=st.session_state.presentation_projet['duree_souhaitee'],
-            placeholder="25 ans"
-        )
-        
-        st.session_state.presentation_projet['revenus_mensuels'] = st.text_input(
-            "Revenus mensuels nets",
-            value=st.session_state.presentation_projet['revenus_mensuels'],
-            placeholder="5 500 €"
-        )
-        
-        st.session_state.presentation_projet['charges_mensuelles'] = st.text_input(
-            "Charges mensuelles",
-            value=st.session_state.presentation_projet['charges_mensuelles'],
-            placeholder="800 €"
-        )
     
     st.divider()
     
