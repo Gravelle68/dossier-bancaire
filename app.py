@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS simplifié (sans HTML dynamique qui cause le bug)
+# CSS simplifié
 st.markdown("""
 <style>
     .stButton>button {
@@ -73,11 +73,31 @@ if 'documents' not in st.session_state:
 if 'temp_dir' not in st.session_state:
     st.session_state.temp_dir = tempfile.mkdtemp()
 
-if 'description_projet' not in st.session_state:
-    st.session_state.description_projet = ""
+if 'info_garde' not in st.session_state:
+    st.session_state.info_garde = {
+        'porteur_projet': '',
+        'type_bien': '',
+        'localisation': '',
+        'montant_sollicite': '',
+        'date': datetime.now().strftime('%d/%m/%Y')
+    }
 
-if 'image_garde' not in st.session_state:
-    st.session_state.image_garde = None
+if 'presentation_projet' not in st.session_state:
+    st.session_state.presentation_projet = {
+        'description': '',
+        'surface': '',
+        'prix_acquisition': '',
+        'apport_personnel': '',
+        'montant_emprunte': '',
+        'duree_souhaitee': '',
+        'revenus_mensuels': '',
+        'charges_mensuelles': ''
+    }
+
+if 'selected_category' not in st.session_state:
+    st.session_state.selected_category = None
+if 'selected_doc_type' not in st.session_state:
+    st.session_state.selected_doc_type = None
 
 # Traitement carte d'identité
 def traiter_carte_identite(chemin_image, nom_affichage):
@@ -153,27 +173,83 @@ def creer_page_carte_identite(img_originale, cartes_detectees, nom_affichage):
         return None
 
 # Génération PDF
-def generer_pdf_complet(description, image_garde_path):
+def generer_pdf_complet(info_garde, presentation_projet):
     doc = fitz.open()
     
-    # PAGE DE GARDE
+    # PAGE DE GARDE MODERNE
     page_garde = doc.new_page()
-    colors_gradient = [(0.1, 0.3, 0.7), (0.15, 0.35, 0.75), (0.2, 0.4, 0.8), (0.25, 0.45, 0.85)]
-    for i, color in enumerate(colors_gradient):
-        y_start = 80 + i * 60
-        page_garde.draw_rect(fitz.Rect(0, y_start, 595, y_start + 60), 
-                            color=color, fill=color)
     
-    page_garde.insert_text((70, 160), "DOSSIER DE DEMANDE",
-                          fontsize=34, fontname="Helvetica-Bold", color=(1, 1, 1))
-    page_garde.insert_text((70, 205), "DE CREDIT IMMOBILIER",
-                          fontsize=34, fontname="Helvetica-Bold", color=(1, 1, 1))
+    # Fond gris dégradé
+    page_garde.draw_rect(fitz.Rect(0, 0, 595, 842), color=(0.86, 0.86, 0.86), fill=(0.86, 0.86, 0.86))
     
-    if description:
-        words = description.split()
+    # Forme géométrique 1 (bas droite)
+    page_garde.draw_quad(fitz.Quad(
+        fitz.Point(300, 500),
+        fitz.Point(650, 450),
+        fitz.Point(650, 900),
+        fitz.Point(200, 900)
+    ), color=(0.75, 0.75, 0.75), fill=(0.75, 0.75, 0.75), overlay=False)
+    
+    # Ligne d'accent
+    page_garde.draw_rect(fitz.Rect(0, 295, 270, 298), color=(0.17, 0.24, 0.31), fill=(0.17, 0.24, 0.31))
+    
+    # Titre principal
+    page_garde.insert_text((60, 140), "DEMANDE DE",
+                          fontsize=46, fontname="Helvetica-Bold", color=(0.1, 0.1, 0.1))
+    page_garde.insert_text((60, 190), "FINANCEMENT",
+                          fontsize=46, fontname="Helvetica-Bold", color=(0.1, 0.1, 0.1))
+    
+    page_garde.insert_text((60, 235), "Projet Immobilier",
+                          fontsize=22, fontname="Helvetica", color=(0.16, 0.16, 0.16))
+    
+    # Informations structurées
+    y_start = 450
+    line_height = 50
+    
+    infos = [
+        ("Porteur du projet", info_garde.get('porteur_projet', '[Non renseigné]')),
+        ("Type de bien", info_garde.get('type_bien', '[Non renseigné]')),
+        ("Localisation", info_garde.get('localisation', '[Non renseigné]')),
+        ("Montant sollicité", info_garde.get('montant_sollicite', '[Non renseigné]')),
+        ("Date", info_garde.get('date', datetime.now().strftime('%d/%m/%Y')))
+    ]
+    
+    for i, (label, value) in enumerate(infos):
+        y_pos = y_start + i * line_height
+        
+        page_garde.insert_text((60, y_pos), label,
+                              fontsize=11, fontname="Helvetica-Bold", color=(0.1, 0.1, 0.1))
+        
+        page_garde.draw_line(fitz.Point(240, y_pos + 5), fitz.Point(520, y_pos + 5),
+                            color=(0, 0, 0), width=0.5)
+        
+        page_garde.insert_text((240, y_pos), value,
+                              fontsize=12, fontname="Helvetica", color=(0.23, 0.23, 0.23))
+    
+    page_garde.insert_text((420, 810), "DOCUMENT CONFIDENTIEL",
+                          fontsize=8, fontname="Helvetica", color=(0.4, 0.4, 0.4))
+    
+    # PAGE PRÉSENTATION DU PROJET
+    page_presentation = doc.new_page()
+    
+    # En-tête minimaliste
+    page_presentation.draw_rect(fitz.Rect(0, 0, 595, 100), color=(0.17, 0.24, 0.31), fill=(0.17, 0.24, 0.31))
+    page_presentation.insert_text((50, 55), "PRESENTATION DU PROJET",
+                                 fontsize=28, fontname="Helvetica-Bold", color=(1, 1, 1))
+    
+    y_pos = 140
+    
+    # Description du projet
+    if presentation_projet.get('description'):
+        page_presentation.insert_text((50, y_pos), "Description du projet",
+                                     fontsize=14, fontname="Helvetica-Bold", color=(0.17, 0.24, 0.31))
+        y_pos += 25
+        
+        desc = presentation_projet['description']
+        words = desc.split()
         lines = []
         current_line = []
-        max_chars = 70
+        max_chars = 85
         
         for word in words:
             test_line = " ".join(current_line + [word])
@@ -181,32 +257,50 @@ def generer_pdf_complet(description, image_garde_path):
                 if current_line:
                     lines.append(" ".join(current_line))
                     current_line = [word]
-                else:
-                    lines.append(word)
             else:
                 current_line.append(word)
-        
         if current_line:
             lines.append(" ".join(current_line))
         
-        start_y = 380 if not image_garde_path else 350
+        for line in lines[:6]:
+            page_presentation.insert_text((50, y_pos), line,
+                                        fontsize=11, fontname="Helvetica", color=(0.2, 0.2, 0.2))
+            y_pos += 18
         
-        for i, line in enumerate(lines[:8]):
-            text_width = len(line) * 6.5
-            x_centered = (595 - text_width) / 2
-            page_garde.insert_text((x_centered, start_y + i * 20), line,
-                                fontsize=12, fontname="helv", color=(0.15, 0.15, 0.15))
+        y_pos += 30
     
-    if image_garde_path and os.path.exists(image_garde_path):
-        try:
-            img_y_start = 500 if description else 420
-            img_rect = fitz.Rect(120, img_y_start, 475, 720)
-            page_garde.insert_image(img_rect, filename=image_garde_path, keep_proportion=True)
-        except:
-            pass
+    # Tableau des chiffres clés
+    page_presentation.draw_rect(fitz.Rect(50, y_pos, 545, y_pos + 35), 
+                               color=(0.17, 0.24, 0.31), fill=(0.17, 0.24, 0.31))
+    page_presentation.insert_text((60, y_pos + 22), "CHIFFRES CLES",
+                                 fontsize=13, fontname="Helvetica-Bold", color=(1, 1, 1))
+    
+    y_pos += 55
+    
+    chiffres = [
+        ("Surface", presentation_projet.get('surface', '—')),
+        ("Prix d'acquisition", presentation_projet.get('prix_acquisition', '—')),
+        ("Apport personnel", presentation_projet.get('apport_personnel', '—')),
+        ("Montant emprunté", presentation_projet.get('montant_emprunte', '—')),
+        ("Durée souhaitée", presentation_projet.get('duree_souhaitee', '—')),
+        ("Revenus mensuels nets", presentation_projet.get('revenus_mensuels', '—')),
+        ("Charges mensuelles", presentation_projet.get('charges_mensuelles', '—'))
+    ]
+    
+    for i, (label, value) in enumerate(chiffres):
+        if i % 2 == 0:
+            page_presentation.draw_rect(fitz.Rect(50, y_pos - 5, 545, y_pos + 20),
+                                       color=(0.95, 0.95, 0.95), fill=(0.95, 0.95, 0.95))
+        
+        page_presentation.insert_text((60, y_pos + 12), label,
+                                     fontsize=11, fontname="Helvetica-Bold", color=(0.2, 0.2, 0.2))
+        page_presentation.insert_text((320, y_pos + 12), value,
+                                     fontsize=11, fontname="Helvetica", color=(0.3, 0.3, 0.3))
+        
+        y_pos += 35
     
     page_numbers = {}
-    current_page = 1
+    current_page = 2
     
     # DOCUMENTS
     for category, docs in st.session_state.documents.items():
@@ -217,35 +311,30 @@ def generer_pdf_complet(description, image_garde_path):
         current_page += 1
         page_numbers[category] = current_page - 1
         
-        intercalaire.draw_rect(fitz.Rect(0, 0, 595, 180), 
-                            color=(0.1, 0.3, 0.7), fill=(0.1, 0.3, 0.7))
+        # Style minimaliste
+        intercalaire.draw_rect(fitz.Rect(0, 0, 595, 120), 
+                            color=(0.17, 0.24, 0.31), fill=(0.17, 0.24, 0.31))
         
-        intercalaire.insert_text((50, 80), category,
-                                fontsize=38, fontname="Helvetica-Bold", color=(1, 1, 1))
+        intercalaire.insert_text((50, 70), category,
+                                fontsize=32, fontname="Helvetica-Bold", color=(1, 1, 1))
         
         files_in_category = sum(len(files) for files in docs.values())
-        intercalaire.insert_text((50, 130), 
-                                f"{files_in_category} fichier{'s' if files_in_category > 1 else ''}",
-                                fontsize=15, fontname="helv", color=(0.85, 0.92, 1))
+        intercalaire.insert_text((50, 100), 
+                                f"{files_in_category} document{'s' if files_in_category > 1 else ''}",
+                                fontsize=13, fontname="Helvetica", color=(0.85, 0.85, 0.85))
         
-        y_pos = 220
-        intercalaire.insert_text((50, y_pos), "Contenu de cette section:",
-                            fontsize=16, fontname="Helvetica-Bold", color=(0.1, 0.3, 0.7))
-        
-        y_pos += 35
+        y_pos = 170
         file_num = 1
         
         for doc_type, doc_files in docs.items():
             for file_index, doc_info in enumerate(doc_files):
                 if file_num % 2 == 0:
-                    intercalaire.draw_rect(fitz.Rect(55, y_pos-8, 540, y_pos+18),
-                                        color=(0.96, 0.98, 1), fill=(0.96, 0.98, 1))
+                    intercalaire.draw_rect(fitz.Rect(50, y_pos-8, 545, y_pos+18),
+                                        color=(0.96, 0.96, 0.96), fill=(0.96, 0.96, 0.96))
                 
-                type_icon = "PDF" if doc_info['type_fichier'] == 'PDF' else "IMG"
-                
-                intercalaire.insert_text((70, y_pos), 
-                                        f"{file_num}. [{type_icon}] {doc_info['nom_affichage']}",
-                                        fontsize=12, fontname="helv", color=(0.2, 0.2, 0.2))
+                intercalaire.insert_text((65, y_pos), 
+                                        f"{file_num}. {doc_info['nom_affichage']}",
+                                        fontsize=11, fontname="Helvetica", color=(0.2, 0.2, 0.2))
                 
                 y_pos += 26
                 file_num += 1
@@ -264,16 +353,16 @@ def generer_pdf_complet(description, image_garde_path):
                                 nouvelle_page = doc.new_page()
                                 current_page += 1
                                 
-                                nouvelle_page.draw_rect(fitz.Rect(0, 0, 595, 45), 
-                                                    color=(0.97, 0.98, 1), fill=(0.97, 0.98, 1))
-                                nouvelle_page.insert_text((15, 28), f"{category} - {doc_info['nom_affichage']}",
-                                                        fontsize=13, fontname="Helvetica-Bold", color=(0.1, 0.3, 0.7))
+                                nouvelle_page.draw_rect(fitz.Rect(0, 0, 595, 40), 
+                                                    color=(0.95, 0.95, 0.95), fill=(0.95, 0.95, 0.95))
+                                nouvelle_page.insert_text((15, 25), f"{category} - {doc_info['nom_affichage']}",
+                                                        fontsize=11, fontname="Helvetica-Bold", color=(0.17, 0.24, 0.31))
                                 
                                 if pdf_source.page_count > 1:
-                                    nouvelle_page.insert_text((480, 28), f"{page_num + 1}/{pdf_source.page_count}",
-                                                            fontsize=11, fontname="helv", color=(0.5, 0.5, 0.5))
+                                    nouvelle_page.insert_text((500, 25), f"{page_num + 1}/{pdf_source.page_count}",
+                                                            fontsize=9, fontname="Helvetica", color=(0.5, 0.5, 0.5))
                                 
-                                nouvelle_page.show_pdf_page(fitz.Rect(15, 55, 580, 780), pdf_source, page_num)
+                                nouvelle_page.show_pdf_page(fitz.Rect(15, 50, 580, 792), pdf_source, page_num)
                             
                             pdf_source.close()
                     except:
@@ -285,13 +374,13 @@ def generer_pdf_complet(description, image_garde_path):
                         page = doc.new_page()
                         current_page += 1
                         
-                        page.draw_rect(fitz.Rect(0, 0, 595, 45), 
-                                    color=(0.97, 0.98, 1), fill=(0.97, 0.98, 1))
-                        page.insert_text((15, 28), f"{category} - {doc_info['nom_affichage']}",
-                                    fontsize=13, fontname="Helvetica-Bold", color=(0.1, 0.3, 0.7))
+                        page.draw_rect(fitz.Rect(0, 0, 595, 40), 
+                                    color=(0.95, 0.95, 0.95), fill=(0.95, 0.95, 0.95))
+                        page.insert_text((15, 25), f"{category} - {doc_info['nom_affichage']}",
+                                    fontsize=11, fontname="Helvetica-Bold", color=(0.17, 0.24, 0.31))
                         
                         if os.path.exists(doc_info['chemin']):
-                            page.insert_image(fitz.Rect(15, 55, 580, 780), 
+                            page.insert_image(fitz.Rect(15, 50, 580, 792), 
                                             filename=doc_info['chemin'], keep_proportion=True)
                     except:
                         pass
@@ -302,29 +391,45 @@ def generer_pdf_complet(description, image_garde_path):
     for key in page_numbers:
         page_numbers[key] += 1
     
-    sommaire_page.draw_rect(fitz.Rect(40, 50, 555, 105), 
-                        color=(0.1, 0.3, 0.7), fill=(0.1, 0.3, 0.7))
-    sommaire_page.insert_text((55, 82), "SOMMAIRE INTERACTIF",
-                            fontsize=24, fontname="Helvetica-Bold", color=(1, 1, 1))
+    sommaire_page.draw_rect(fitz.Rect(0, 0, 595, 120), 
+                        color=(0.17, 0.24, 0.31), fill=(0.17, 0.24, 0.31))
+    sommaire_page.insert_text((50, 70), "SOMMAIRE",
+                            fontsize=32, fontname="Helvetica-Bold", color=(1, 1, 1))
     
-    y_position = 135
+    y_position = 160
+    
+    # Lien vers présentation
+    rect_pres = fitz.Rect(50, y_position-6, 470, y_position+18)
+    lien_pres = {
+        "kind": fitz.LINK_GOTO,
+        "page": 1,
+        "to": fitz.Point(50, 100),
+        "from": rect_pres
+    }
+    sommaire_page.insert_link(lien_pres)
+    
+    sommaire_page.insert_text((60, y_position), "PRESENTATION DU PROJET",
+                            fontsize=13, fontname="Helvetica-Bold", color=(0.17, 0.24, 0.31))
+    sommaire_page.insert_text((500, y_position), "p.2",
+                            fontsize=11, fontname="Helvetica", color=(0.4, 0.4, 0.4))
+    
+    y_position += 35
     
     for category, docs in st.session_state.documents.items():
         if any(docs.values()):
-            rect_cat = fitz.Rect(55, y_position-6, 470, y_position+18)
+            rect_cat = fitz.Rect(50, y_position-6, 470, y_position+18)
             lien_cat = {
-                "kind": fitz.LINK_GOTO, 
-                "page": page_numbers[category], 
-                "to": fitz.Point(50, 100), 
+                "kind": fitz.LINK_GOTO,
+                "page": page_numbers[category],
+                "to": fitz.Point(50, 100),
                 "from": rect_cat
             }
             sommaire_page.insert_link(lien_cat)
             
-            sommaire_page.insert_text((65, y_position), category,
-                                    fontsize=15, fontname="Helvetica-Bold", color=(0.1, 0.3, 0.7))
-            
-            sommaire_page.insert_text((475, y_position), f"p.{page_numbers[category]}",
-                                    fontsize=13, fontname="helv", color=(0.4, 0.4, 0.4))
+            sommaire_page.insert_text((60, y_position), category,
+                                    fontsize=13, fontname="Helvetica-Bold", color=(0.17, 0.24, 0.31))
+            sommaire_page.insert_text((500, y_position), f"p.{page_numbers[category]}",
+                                    fontsize=11, fontname="Helvetica", color=(0.4, 0.4, 0.4))
             
             y_position += 28
             
@@ -333,31 +438,25 @@ def generer_pdf_complet(description, image_garde_path):
                     page_key = f"{category}_{doc_type}_{file_index}"
                     
                     if page_key in page_numbers:
-                        rect_doc = fitz.Rect(85, y_position-5, 480, y_position+14)
+                        rect_doc = fitz.Rect(80, y_position-5, 480, y_position+14)
                         lien_doc = {
-                            "kind": fitz.LINK_GOTO, 
-                            "page": page_numbers[page_key], 
-                            "to": fitz.Point(50, 100), 
+                            "kind": fitz.LINK_GOTO,
+                            "page": page_numbers[page_key],
+                            "to": fitz.Point(50, 100),
                             "from": rect_doc
                         }
                         sommaire_page.insert_link(lien_doc)
                         
-                        type_icon = "PDF" if doc_info['type_fichier'] == 'PDF' else "IMG"
+                        sommaire_page.insert_text((90, y_position), 
+                                                f"{doc_info['nom_affichage']}",
+                                                fontsize=10, fontname="Helvetica", color=(0.3, 0.3, 0.3))
                         
-                        sommaire_page.insert_text((95, y_position), 
-                                                f"[{type_icon}] {doc_info['nom_affichage']}",
-                                                fontsize=11, fontname="helv", color=(0.3, 0.3, 0.3))
-                        
-                        sommaire_page.insert_text((485, y_position), f"p.{page_numbers[page_key]}",
-                                                fontsize=10, fontname="helv", color=(0.6, 0.6, 0.6))
+                        sommaire_page.insert_text((505, y_position), f"p.{page_numbers[page_key]}",
+                                                fontsize=9, fontname="Helvetica", color=(0.6, 0.6, 0.6))
                     
                     y_position += 20
             
-            y_position += 12
-    
-    sommaire_page.insert_text((55, y_position + 25),
-                            "Cliquez sur les elements pour naviguer directement",
-                            fontsize=10, fontname="Helvetica-Oblique", color=(0, 0.6, 0))
+            y_position += 15
     
     pdf_bytes = doc.tobytes()
     doc.close()
@@ -385,27 +484,86 @@ st.divider()
 
 # Sidebar
 with st.sidebar:
-    st.header("🎨 Page de garde")
+    st.header("🎨 Informations page de garde")
     
-    description = st.text_area(
-        "Description du projet",
-        value=st.session_state.description_projet,
-        height=150,
-        placeholder="Ex: Acquisition d'une maison familiale..."
-    )
-    st.session_state.description_projet = description
-    
-    image_garde_file = st.file_uploader(
-        "Image de page de garde",
-        type=['jpg', 'jpeg', 'png', 'bmp']
+    st.session_state.info_garde['porteur_projet'] = st.text_input(
+        "Porteur du projet",
+        value=st.session_state.info_garde['porteur_projet'],
+        placeholder="Nom complet"
     )
     
-    if image_garde_file:
-        chemin_image = os.path.join(st.session_state.temp_dir, f"garde_{image_garde_file.name}")
-        with open(chemin_image, "wb") as f:
-            f.write(image_garde_file.getbuffer())
-        st.session_state.image_garde = chemin_image
-        st.image(image_garde_file, width=200)
+    st.session_state.info_garde['type_bien'] = st.text_input(
+        "Type de bien",
+        value=st.session_state.info_garde['type_bien'],
+        placeholder="Appartement / Maison / Immeuble"
+    )
+    
+    st.session_state.info_garde['localisation'] = st.text_input(
+        "Localisation",
+        value=st.session_state.info_garde['localisation'],
+        placeholder="Ville, Département"
+    )
+    
+    st.session_state.info_garde['montant_sollicite'] = st.text_input(
+        "Montant sollicité",
+        value=st.session_state.info_garde['montant_sollicite'],
+        placeholder="XXX XXX €"
+    )
+    
+    st.divider()
+    
+    st.header("📊 Présentation du projet")
+    
+    with st.expander("Description", expanded=False):
+        st.session_state.presentation_projet['description'] = st.text_area(
+            "Description détaillée",
+            value=st.session_state.presentation_projet['description'],
+            height=100,
+            placeholder="Décrivez votre projet immobilier..."
+        )
+    
+    with st.expander("Chiffres clés", expanded=False):
+        st.session_state.presentation_projet['surface'] = st.text_input(
+            "Surface",
+            value=st.session_state.presentation_projet['surface'],
+            placeholder="120 m²"
+        )
+        
+        st.session_state.presentation_projet['prix_acquisition'] = st.text_input(
+            "Prix d'acquisition",
+            value=st.session_state.presentation_projet['prix_acquisition'],
+            placeholder="350 000 €"
+        )
+        
+        st.session_state.presentation_projet['apport_personnel'] = st.text_input(
+            "Apport personnel",
+            value=st.session_state.presentation_projet['apport_personnel'],
+            placeholder="70 000 €"
+        )
+        
+        st.session_state.presentation_projet['montant_emprunte'] = st.text_input(
+            "Montant emprunté",
+            value=st.session_state.presentation_projet['montant_emprunte'],
+            placeholder="280 000 €"
+        )
+        
+        st.session_state.presentation_projet['duree_souhaitee'] = st.text_input(
+            "Durée souhaitée",
+            value=st.session_state.presentation_projet['duree_souhaitee'],
+            placeholder="25 ans"
+        )
+        
+        st.session_state.presentation_projet['revenus_mensuels'] = st.text_input(
+            "Revenus mensuels nets",
+            value=st.session_state.presentation_projet['revenus_mensuels'],
+            placeholder="5 500 €"
+        )
+        
+        st.session_state.presentation_projet['charges_mensuelles'] = st.text_input(
+            "Charges mensuelles",
+            value=st.session_state.presentation_projet['charges_mensuelles'],
+            placeholder="800 €"
+        )
     
     st.divider()
     
@@ -416,8 +574,8 @@ with st.sidebar:
             with st.spinner("Génération en cours..."):
                 try:
                     pdf_bytes = generer_pdf_complet(
-                        st.session_state.description_projet,
-                        st.session_state.image_garde
+                        st.session_state.info_garde,
+                        st.session_state.presentation_projet
                     )
                     
                     st.download_button(
@@ -432,19 +590,12 @@ with st.sidebar:
                 except Exception as e:
                     st.error(f"Erreur: {str(e)}")
 
-# Initialiser la sélection si elle n'existe pas
-if 'selected_category' not in st.session_state:
-    st.session_state.selected_category = None
-if 'selected_doc_type' not in st.session_state:
-    st.session_state.selected_doc_type = None
-
 # Layout principal
 col_left, col_right = st.columns([2, 1])
 
 with col_left:
     st.subheader("📋 Documents requis")
     
-    # Afficher la structure arborescente
     for category, doc_types in CATEGORIES.items():
         files_in_cat = sum(len(st.session_state.documents[category][dt]) for dt in doc_types)
         
@@ -472,12 +623,11 @@ with col_left:
                         st.session_state.selected_doc_type = doc_type
                         st.rerun()
                 
-                # Afficher les fichiers ajoutés
                 if files:
                     for i, doc_info in enumerate(files):
                         col_file, col_del = st.columns([5, 1])
                         with col_file:
-                            st.caption(f"  └─ {doc_info['nom_affichage']} [{doc_info['type_fichier']}]")
+                            st.caption(f"  └─ {doc_info['nom_affichage']}")
                         with col_del:
                             if st.button("🗑️", key=f"del_{category}_{doc_type}_{i}", help="Supprimer"):
                                 st.session_state.documents[category][doc_type].pop(i)
@@ -500,7 +650,6 @@ with col_right:
         if uploaded_files:
             st.write(f"**{len(uploaded_files)} fichier(s) sélectionné(s)**")
             
-            # Option pour renommer les fichiers individuellement ou garder les noms
             rename_mode = st.radio(
                 "Mode de nommage",
                 ["Garder les noms d'origine", "Renommer individuellement"],
@@ -508,7 +657,6 @@ with col_right:
             )
             
             if rename_mode == "Renommer individuellement":
-                # Afficher un champ pour chaque fichier
                 noms_affiches = []
                 for i, uploaded_file in enumerate(uploaded_files):
                     nom = st.text_input(
@@ -518,7 +666,6 @@ with col_right:
                     )
                     noms_affiches.append(nom)
             else:
-                # Garder les noms d'origine
                 noms_affiches = [os.path.splitext(f.name)[0] for f in uploaded_files]
             
             if st.button("✅ Ajouter tous les fichiers", type="primary", use_container_width=True):
@@ -532,7 +679,6 @@ with col_right:
                     with open(chemin, "wb") as f:
                         f.write(uploaded_file.getbuffer())
                     
-                    # Traitement carte d'identité si applicable
                     if "carte" in st.session_state.selected_doc_type.lower() and "identite" in st.session_state.selected_doc_type.lower() and extension.lower() in ['.jpg', '.jpeg', '.png']:
                         try:
                             chemin = traiter_carte_identite(chemin, nom_affichage)
@@ -550,7 +696,6 @@ with col_right:
                 
                 st.success(f"✅ {fichiers_ajoutes} fichier(s) ajouté(s)!")
                 
-                # Réinitialiser la sélection
                 st.session_state.selected_category = None
                 st.session_state.selected_doc_type = None
                 st.rerun()
@@ -564,3 +709,4 @@ with col_right:
 
 st.divider()
 st.caption("Application web - Fonctionne sur tous les appareils")
+                                
