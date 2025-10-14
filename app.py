@@ -1,7 +1,3 @@
-if 'selected_category' not in st.session_state:
-    st.session_state.selected_category = None
-if 'selected_doc_type' not in st.session_state:
-    st.session_state.selected_doc_type = None
 import streamlit as st
 import os
 import tempfile
@@ -12,6 +8,12 @@ import cv2
 import numpy as np
 from datetime import datetime
 import io
+
+# Initialisation session state
+if 'selected_category' not in st.session_state:
+    st.session_state.selected_category = None
+if 'selected_doc_type' not in st.session_state:
+    st.session_state.selected_doc_type = None
 
 # Configuration
 st.set_page_config(
