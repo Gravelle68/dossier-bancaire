@@ -489,40 +489,66 @@ with col_right:
     if st.session_state.selected_category and st.session_state.selected_doc_type:
         st.info(f"**Catégorie :** {st.session_state.selected_category}\n\n**Type :** {st.session_state.selected_doc_type}")
         
-        uploaded_file = st.file_uploader(
-            "Choisir un fichier",
+        uploaded_files = st.file_uploader(
+            "Glissez-déposez un ou plusieurs fichiers",
             type=['pdf', 'jpg', 'jpeg', 'png', 'bmp', 'tiff'],
-            key="file_uploader"
+            accept_multiple_files=True,
+            key="file_uploader",
+            help="Vous pouvez sélectionner ou glisser-déposer plusieurs fichiers en même temps"
         )
         
-        if uploaded_file:
-            nom_affichage = st.text_input(
-                "Nom du document",
-                value=os.path.splitext(uploaded_file.name)[0]
+        if uploaded_files:
+            st.write(f"**{len(uploaded_files)} fichier(s) sélectionné(s)**")
+            
+            # Option pour renommer les fichiers individuellement ou garder les noms
+            rename_mode = st.radio(
+                "Mode de nommage",
+                ["Garder les noms d'origine", "Renommer individuellement"],
+                horizontal=True
             )
             
-            if st.button("✅ Ajouter ce document", type="primary", use_container_width=True):
-                extension = os.path.splitext(uploaded_file.name)[1]
-                nouveau_nom = f"{st.session_state.selected_category}_{st.session_state.selected_doc_type}_{nom_affichage}{extension}"
-                chemin = os.path.join(st.session_state.temp_dir, nouveau_nom)
+            if rename_mode == "Renommer individuellement":
+                # Afficher un champ pour chaque fichier
+                noms_affiches = []
+                for i, uploaded_file in enumerate(uploaded_files):
+                    nom = st.text_input(
+                        f"Nom pour '{uploaded_file.name}'",
+                        value=os.path.splitext(uploaded_file.name)[0],
+                        key=f"rename_{i}"
+                    )
+                    noms_affiches.append(nom)
+            else:
+                # Garder les noms d'origine
+                noms_affiches = [os.path.splitext(f.name)[0] for f in uploaded_files]
+            
+            if st.button("✅ Ajouter tous les fichiers", type="primary", use_container_width=True):
+                fichiers_ajoutes = 0
                 
-                with open(chemin, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
+                for uploaded_file, nom_affichage in zip(uploaded_files, noms_affiches):
+                    extension = os.path.splitext(uploaded_file.name)[1]
+                    nouveau_nom = f"{st.session_state.selected_category}_{st.session_state.selected_doc_type}_{nom_affichage}{extension}"
+                    chemin = os.path.join(st.session_state.temp_dir, nouveau_nom)
+                    
+                    with open(chemin, "wb") as f:
+                        f.write(uploaded_file.getbuffer())
+                    
+                    # Traitement carte d'identité si applicable
+                    if "carte" in st.session_state.selected_doc_type.lower() and "identite" in st.session_state.selected_doc_type.lower() and extension.lower() in ['.jpg', '.jpeg', '.png']:
+                        try:
+                            chemin = traiter_carte_identite(chemin, nom_affichage)
+                        except:
+                            pass
+                    
+                    doc_info = {
+                        'chemin': chemin,
+                        'nom_affichage': nom_affichage,
+                        'type_fichier': 'PDF' if extension.lower() == '.pdf' else 'Image'
+                    }
+                    
+                    st.session_state.documents[st.session_state.selected_category][st.session_state.selected_doc_type].append(doc_info)
+                    fichiers_ajoutes += 1
                 
-                if "carte" in st.session_state.selected_doc_type.lower() and "identite" in st.session_state.selected_doc_type.lower() and extension.lower() in ['.jpg', '.jpeg', '.png']:
-                    try:
-                        chemin = traiter_carte_identite(chemin, nom_affichage)
-                    except:
-                        pass
-                
-                doc_info = {
-                    'chemin': chemin,
-                    'nom_affichage': nom_affichage,
-                    'type_fichier': 'PDF' if extension.lower() == '.pdf' else 'Image'
-                }
-                
-                st.session_state.documents[st.session_state.selected_category][st.session_state.selected_doc_type].append(doc_info)
-                st.success(f"✅ {nom_affichage} ajouté!")
+                st.success(f"✅ {fichiers_ajoutes} fichier(s) ajouté(s)!")
                 
                 # Réinitialiser la sélection
                 st.session_state.selected_category = None
