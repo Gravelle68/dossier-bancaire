@@ -1,7 +1,4 @@
-if 'selected_category' not in st.session_state:
-    st.session_state.selected_category = None
-if 'selected_doc_type' not in st.session_state:
-    st.session_state.selected_doc_type = Noneimport streamlit as st
+import streamlit as st
 import os
 import tempfile
 import shutil
@@ -13,6 +10,12 @@ from datetime import datetime
 import io
 import requests
 from packaging import version
+
+if 'selected_category' not in st.session_state:
+    st.session_state.selected_category = None
+if 'selected_doc_type' not in st.session_state:
+    st.session_state.selected_doc_type = None
+
 
 # Configuration
 st.set_page_config(
