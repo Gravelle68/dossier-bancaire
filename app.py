@@ -26,7 +26,7 @@ st.set_page_config(
 )
 
 # Version de l'application
-VERSION_ACTUELLE = "0.9.0"
+VERSION_ACTUELLE = "1.0.0"
 GITHUB_REPO = "Gravelle68/dossier-bancaire"  # CHANGE TON-PSEUDO
 
 # Fonction de vérification des mises à jour
