@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Environnements virtuels
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Fichiers temporaires
+*.tmp
+temp/
+tmp/
+
+# Fichiers sensibles
+*.pdf
+*.docx
+*.jpg
+*.jpeg
+*.png
+config_local.py
