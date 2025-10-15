@@ -1,4 +1,7 @@
-import streamlit as st
+if 'selected_category' not in st.session_state:
+    st.session_state.selected_category = None
+if 'selected_doc_type' not in st.session_state:
+    st.session_state.selected_doc_type = Noneimport streamlit as st
 import os
 import tempfile
 import shutil
@@ -8,12 +11,8 @@ import cv2
 import numpy as np
 from datetime import datetime
 import io
-
-# Initialisation session state
-if 'selected_category' not in st.session_state:
-    st.session_state.selected_category = None
-if 'selected_doc_type' not in st.session_state:
-    st.session_state.selected_doc_type = None
+import requests
+from packaging import version
 
 # Configuration
 st.set_page_config(
@@ -22,6 +21,51 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Version de l'application
+VERSION_ACTUELLE = "1.0.0"
+GITHUB_REPO = "Gravelle68/dossier-bancaire"  # CHANGE TON-PSEUDO
+
+# Fonction de vérification des mises à jour
+def verifier_mise_a_jour():
+    """Vérifie si une nouvelle version est disponible sur GitHub"""
+    try:
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+        response = requests.get(url, timeout=5)
+        
+        if response.status_code == 200:
+            data = response.json()
+            derniere_version = data["tag_name"].replace("v", "")
+            
+            if version.parse(derniere_version) > version.parse(VERSION_ACTUELLE):
+                return {
+                    "disponible": True,
+                    "version": derniere_version,
+                    "url": data["html_url"],
+                    "notes": data.get("body", "Nouvelle version disponible")
+                }
+        
+        return {"disponible": False}
+    except:
+        return {"disponible": False}
+
+# Vérifier au démarrage (une seule fois par session)
+if 'update_checked' not in st.session_state:
+    st.session_state.update_checked = True
+    update_info = verifier_mise_a_jour()
+    
+    if update_info["disponible"]:
+        st.info(f"""
+        ### 🎉 Nouvelle version disponible !
+        
+        **Version {update_info['version']}** est maintenant disponible.  
+        Vous utilisez la version {VERSION_ACTUELLE}.
+        
+        **Nouveautés :**  
+        {update_info['notes'][:200]}...
+        
+        [📥 Télécharger la mise à jour]({update_info['url']})
+        """, icon="🔄")
 
 # CSS simplifié
 st.markdown("""
