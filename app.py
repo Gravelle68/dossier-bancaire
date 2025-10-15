@@ -433,9 +433,16 @@ def generer_pdf_complet(info_garde, presentation_projet):
 st.title("📁 Générateur de Dossier Bancaire")
 st.caption("Crédit Immobilier Professionnel")
 
-# Warning sécurité pour version web
-if os.environ.get("STREAMLIT_RUNTIME_ENV") == "cloud":
-    st.warning("""
+# Détecter si on est sur Streamlit Cloud
+is_cloud = (
+    os.environ.get("HOSTNAME", "").startswith("streamlit") or
+    "streamlit.app" in os.environ.get("STREAMLIT_SERVER_ADDRESS", "") or
+    os.environ.get("IS_STREAMLIT_CLOUD") == "true"
+)
+
+# Warning sécurité (toujours afficher si pas explicitement en local)
+if is_cloud or os.environ.get("RUN_LOCAL") != "true":
+    st.warning(f"""
     ⚠️ **ATTENTION - VERSION DÉMO EN LIGNE**
     
     Cette version hébergée en ligne est destinée aux **TESTS et DÉMONSTRATIONS** uniquement.
