@@ -284,92 +284,154 @@ def generer_pdf_complet(info_garde, presentation_projet):
     page_numbers = {}
     current_page = 1
     
-    # DOCUMENTS
+    # DOCUMENTS - Phase 1: Créer pages de garde de catégories et lister tous les docs
+    all_docs_info = []  # Liste de tous les docs avec leurs infos
+    
     for category, docs in st.session_state.documents.items():
         if not any(docs.values()):
             continue
         
-        intercalaire = doc.new_page()
+        # Collecter tous les documents de cette catégorie
+        category_docs = []
+        for doc_type, doc_files in docs.items():
+            for file_index, doc_info in enumerate(doc_files):
+                category_docs.append({
+                    'category': category,
+                    'doc_type': doc_type,
+                    'file_index': file_index,
+                    'doc_info': doc_info
+                })
+        
+        # Enregistrer le numéro de page de la première page de garde de la catégorie
         current_page += 1
         page_numbers[category] = current_page - 1
         
-        # Style minimaliste
-        intercalaire.draw_rect(fitz.Rect(0, 0, 595, 120), 
-                            color=(0.17, 0.24, 0.31), fill=(0.17, 0.24, 0.31))
+        # Créer les pages de garde de la catégorie (avec pagination si nécessaire)
+        docs_per_page = 25
+        num_pages = (len(category_docs) + docs_per_page - 1) // docs_per_page  # Arrondi supérieur
         
-        intercalaire.insert_text((50, 70), category,
-                                fontsize=32, fontname="Helvetica-Bold", color=(1, 1, 1))
-        
-        files_in_category = sum(len(files) for files in docs.values())
-        intercalaire.insert_text((50, 100), 
-                                f"{files_in_category} document{'s' if files_in_category > 1 else ''}",
-                                fontsize=13, fontname="Helvetica", color=(0.85, 0.85, 0.85))
-        
-        y_pos = 170
-        file_num = 1
-        
-        for doc_type, doc_files in docs.items():
-            for file_index, doc_info in enumerate(doc_files):
+        for page_idx in range(num_pages):
+            intercalaire = doc.new_page()
+            
+            # En-tête de la page de garde
+            intercalaire.draw_rect(fitz.Rect(0, 0, 595, 120), 
+                                color=(0.17, 0.24, 0.31), fill=(0.17, 0.24, 0.31))
+            
+            intercalaire.insert_text((50, 70), category,
+                                    fontsize=32, fontname="Helvetica-Bold", color=(1, 1, 1))
+            
+            files_in_category = len(category_docs)
+            page_info = f"Page {page_idx + 1}/{num_pages}" if num_pages > 1 else ""
+            intercalaire.insert_text((50, 100), 
+                                    f"{files_in_category} document{'s' if files_in_category > 1 else ''} {page_info}",
+                                    fontsize=13, fontname="Helvetica", color=(0.85, 0.85, 0.85))
+            
+            # Liste des documents pour cette page
+            y_pos = 170
+            start_idx = page_idx * docs_per_page
+            end_idx = min(start_idx + docs_per_page, len(category_docs))
+            
+            for doc_idx in range(start_idx, end_idx):
+                doc_data = category_docs[doc_idx]
+                doc_info = doc_data['doc_info']
+                file_num = doc_idx + 1
+                
+                # Alterner la couleur de fond
                 if file_num % 2 == 0:
                     intercalaire.draw_rect(fitz.Rect(50, y_pos-8, 545, y_pos+18),
                                         color=(0.96, 0.96, 0.96), fill=(0.96, 0.96, 0.96))
                 
+                # Texte du document (sera lié plus tard)
                 intercalaire.insert_text((65, y_pos), 
                                         f"{file_num}. {doc_info['nom_affichage']}",
                                         fontsize=11, fontname="Helvetica", color=(0.2, 0.2, 0.2))
                 
-                y_pos += 26
-                file_num += 1
-        
-        for doc_type, doc_files in docs.items():
-            for file_index, doc_info in enumerate(doc_files):
-                page_key = f"{category}_{doc_type}_{file_index}"
+                # Stocker les infos pour créer le lien plus tard
+                page_key = f"{category}_{doc_data['doc_type']}_{doc_data['file_index']}"
+                all_docs_info.append({
+                    'page_key': page_key,
+                    'category': category,
+                    'doc_data': doc_data,
+                    'index_page': current_page - 1,
+                    'y_pos': y_pos
+                })
                 
-                if doc_info['type_fichier'] == 'PDF':
-                    try:
-                        pdf_source = fitz.open(doc_info['chemin'])
-                        if pdf_source and pdf_source.page_count > 0:
-                            page_numbers[page_key] = current_page
-                            
-                            for page_num in range(pdf_source.page_count):
-                                nouvelle_page = doc.new_page()
-                                current_page += 1
-                                
-                                nouvelle_page.draw_rect(fitz.Rect(0, 0, 595, 40), 
-                                                    color=(0.95, 0.95, 0.95), fill=(0.95, 0.95, 0.95))
-                                nouvelle_page.insert_text((15, 25), f"{category} - {doc_info['nom_affichage']}",
-                                                        fontsize=11, fontname="Helvetica-Bold", color=(0.17, 0.24, 0.31))
-                                
-                                if pdf_source.page_count > 1:
-                                    nouvelle_page.insert_text((500, 25), f"{page_num + 1}/{pdf_source.page_count}",
-                                                            fontsize=9, fontname="Helvetica", color=(0.5, 0.5, 0.5))
-                                
-                                nouvelle_page.show_pdf_page(fitz.Rect(15, 50, 580, 792), pdf_source, page_num)
-                            
-                            pdf_source.close()
-                    except:
-                        pass
-                else:
-                    try:
+                y_pos += 26
+        
+        # DOCUMENTS - Phase 2: Insérer les vrais documents
+        for doc_data in category_docs:
+            doc_type = doc_data['doc_type']
+            file_index = doc_data['file_index']
+            doc_info = doc_data['doc_info']
+            page_key = f"{category}_{doc_type}_{file_index}"
+            
+            if doc_info['type_fichier'] == 'PDF':
+                try:
+                    pdf_source = fitz.open(doc_info['chemin'])
+                    if pdf_source and pdf_source.page_count > 0:
                         page_numbers[page_key] = current_page
                         
-                        page = doc.new_page()
-                        current_page += 1
+                        for page_num in range(pdf_source.page_count):
+                            nouvelle_page = doc.new_page()
+                            current_page += 1
+                            
+                            nouvelle_page.draw_rect(fitz.Rect(0, 0, 595, 40), 
+                                                color=(0.95, 0.95, 0.95), fill=(0.95, 0.95, 0.95))
+                            nouvelle_page.insert_text((15, 25), f"{category} - {doc_info['nom_affichage']}",
+                                                    fontsize=11, fontname="Helvetica-Bold", color=(0.17, 0.24, 0.31))
+                            
+                            if pdf_source.page_count > 1:
+                                nouvelle_page.insert_text((500, 25), f"{page_num + 1}/{pdf_source.page_count}",
+                                                        fontsize=9, fontname="Helvetica", color=(0.5, 0.5, 0.5))
+                            
+                            nouvelle_page.show_pdf_page(fitz.Rect(15, 50, 580, 792), pdf_source, page_num)
                         
-                        page.draw_rect(fitz.Rect(0, 0, 595, 40), 
-                                    color=(0.95, 0.95, 0.95), fill=(0.95, 0.95, 0.95))
-                        page.insert_text((15, 25), f"{category} - {doc_info['nom_affichage']}",
-                                    fontsize=11, fontname="Helvetica-Bold", color=(0.17, 0.24, 0.31))
-                        
-                        if os.path.exists(doc_info['chemin']):
-                            page.insert_image(fitz.Rect(15, 50, 580, 792), 
-                                            filename=doc_info['chemin'], keep_proportion=True)
-                    except:
-                        pass
+                        pdf_source.close()
+                except:
+                    pass
+            else:
+                try:
+                    page_numbers[page_key] = current_page
+                    
+                    page = doc.new_page()
+                    current_page += 1
+                    
+                    page.draw_rect(fitz.Rect(0, 0, 595, 40), 
+                                color=(0.95, 0.95, 0.95), fill=(0.95, 0.95, 0.95))
+                    page.insert_text((15, 25), f"{category} - {doc_info['nom_affichage']}",
+                                fontsize=11, fontname="Helvetica-Bold", color=(0.17, 0.24, 0.31))
+                    
+                    if os.path.exists(doc_info['chemin']):
+                        page.insert_image(fitz.Rect(15, 50, 580, 792), 
+                                        filename=doc_info['chemin'], keep_proportion=True)
+                except:
+                    pass
     
-    # SOMMAIRE
+    # Phase 3: Ajouter les liens sur les pages de garde des catégories
+    for doc_link_info in all_docs_info:
+        page_key = doc_link_info['page_key']
+        if page_key in page_numbers:
+            index_page = doc_link_info['index_page']
+            y_pos = doc_link_info['y_pos']
+            
+            # Créer le lien cliquable
+            rect_doc = fitz.Rect(50, y_pos-8, 545, y_pos+18)
+            lien_doc = {
+                "kind": fitz.LINK_GOTO,
+                "page": page_numbers[page_key],
+                "to": fitz.Point(50, 100),
+                "from": rect_doc
+            }
+            doc[index_page].insert_link(lien_doc)
+            
+            # Ajouter le numéro de page à droite
+            doc[index_page].insert_text((505, y_pos), f"p.{page_numbers[page_key]}",
+                                    fontsize=9, fontname="Helvetica", color=(0.6, 0.6, 0.6))
+    
+    # SOMMAIRE - Uniquement les catégories
     sommaire_page = doc.new_page(pno=1)
     
+    # Ajuster tous les numéros de page (+1 car on insère le sommaire)
     for key in page_numbers:
         page_numbers[key] += 1
     
@@ -382,6 +444,9 @@ def generer_pdf_complet(info_garde, presentation_projet):
     
     for category, docs in st.session_state.documents.items():
         if any(docs.values()):
+            files_in_category = sum(len(files) for files in docs.values())
+            
+            # Zone cliquable pour la catégorie
             rect_cat = fitz.Rect(50, y_position-6, 470, y_position+18)
             lien_cat = {
                 "kind": fitz.LINK_GOTO,
@@ -391,37 +456,17 @@ def generer_pdf_complet(info_garde, presentation_projet):
             }
             sommaire_page.insert_link(lien_cat)
             
+            # Nom de la catégorie
             sommaire_page.insert_text((60, y_position), category,
                                     fontsize=13, fontname="Helvetica-Bold", color=(0.17, 0.24, 0.31))
-            sommaire_page.insert_text((500, y_position), f"p.{page_numbers[category]}",
+            
+            # Nombre de documents et numéro de page
+            sommaire_page.insert_text((430, y_position), f"({files_in_category} doc{'s' if files_in_category > 1 else ''})",
+                                    fontsize=10, fontname="Helvetica", color=(0.5, 0.5, 0.5))
+            sommaire_page.insert_text((505, y_position), f"p.{page_numbers[category]}",
                                     fontsize=11, fontname="Helvetica", color=(0.4, 0.4, 0.4))
             
-            y_position += 28
-            
-            for doc_type, doc_files in docs.items():
-                for file_index, doc_info in enumerate(doc_files):
-                    page_key = f"{category}_{doc_type}_{file_index}"
-                    
-                    if page_key in page_numbers:
-                        rect_doc = fitz.Rect(80, y_position-5, 480, y_position+14)
-                        lien_doc = {
-                            "kind": fitz.LINK_GOTO,
-                            "page": page_numbers[page_key],
-                            "to": fitz.Point(50, 100),
-                            "from": rect_doc
-                        }
-                        sommaire_page.insert_link(lien_doc)
-                        
-                        sommaire_page.insert_text((90, y_position), 
-                                                f"{doc_info['nom_affichage']}",
-                                                fontsize=10, fontname="Helvetica", color=(0.3, 0.3, 0.3))
-                        
-                        sommaire_page.insert_text((505, y_position), f"p.{page_numbers[page_key]}",
-                                                fontsize=9, fontname="Helvetica", color=(0.6, 0.6, 0.6))
-                    
-                    y_position += 20
-            
-            y_position += 15
+            y_position += 35
     
     pdf_bytes = doc.tobytes()
     doc.close()
