@@ -1,7 +1,8 @@
 if 'selected_category' not in st.session_state:
     st.session_state.selected_category = None
 if 'selected_doc_type' not in st.session_state:
-    st.session_state.selected_doc_type = Noneimport streamlit as st
+    st.session_state.selected_doc_type = None
+import streamlit as st
 import os
 import tempfile
 import shutil
