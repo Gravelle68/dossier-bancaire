@@ -453,16 +453,24 @@ if is_cloud or os.environ.get("RUN_LOCAL") != "true":
     """, icon="🔐")
     st.divider()
 
-# Progression
-total_types = sum(len(docs) for docs in CATEGORIES.values())
-total_files = sum(len(files) for cat in st.session_state.documents.values() for files in cat.values())
-progress = int((total_files / total_types) * 100) if total_types > 0 else 0
+# Calcul de la progression basé sur les CATÉGORIES remplies
+total_categories = len(CATEGORIES)
+categories_remplies = 0
 
+for category, doc_types in CATEGORIES.items():
+    # Une catégorie est "remplie" si au moins un type de document contient des fichiers
+    if any(st.session_state.documents[category][doc_type] for doc_type in doc_types):
+        categories_remplies += 1
+
+progress = int((categories_remplies / total_categories) * 100) if total_categories > 0 else 0
+total_files = sum(len(files) for cat in st.session_state.documents.values() for files in cat.values())
+
+# Affichage de la progression
 col1, col2, col3 = st.columns([2, 1, 1])
 with col1:
     st.progress(progress / 100)
 with col2:
-    st.metric("Progression", f"{progress}%")
+    st.metric("Catégories", f"{categories_remplies}/{total_categories}")
 with col3:
     st.metric("Fichiers", total_files)
 
