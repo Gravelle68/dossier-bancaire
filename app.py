@@ -1,7 +1,3 @@
-if 'selected_category' not in st.session_state:
-    st.session_state.selected_category = None
-if 'selected_doc_type' not in st.session_state:
-    st.session_state.selected_doc_type = None
 import streamlit as st
 import os
 import tempfile
@@ -149,6 +145,11 @@ if 'presentation_projet' not in st.session_state:
         'revenus_mensuels': '',
         'charges_mensuelles': ''
     }
+
+if 'selected_category' not in st.session_state:
+    st.session_state.selected_category = None
+if 'selected_doc_type' not in st.session_state:
+    st.session_state.selected_doc_type = None
 
 # Traitement carte d'identité
 def traiter_carte_identite(chemin_image, nom_affichage):
