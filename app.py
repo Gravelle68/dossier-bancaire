@@ -303,8 +303,7 @@ def generer_pdf_complet(info_garde, presentation_projet):
                 })
         
         # Enregistrer le numéro de page de la première page de garde de la catégorie
-        current_page += 1
-        page_numbers[category] = current_page - 1
+        page_numbers[category] = current_page
         
         # Créer les pages de garde de la catégorie (avec pagination si nécessaire)
         docs_per_page = 25
@@ -312,6 +311,7 @@ def generer_pdf_complet(info_garde, presentation_projet):
         
         for page_idx in range(num_pages):
             intercalaire = doc.new_page()
+            current_page += 1
             
             # En-tête de la page de garde
             intercalaire.draw_rect(fitz.Rect(0, 0, 595, 120), 
